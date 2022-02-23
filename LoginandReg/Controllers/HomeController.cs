@@ -1,107 +1,85 @@
 ﻿using System;
-using System.Linq;
 using System.Collections.Generic;
-using LoginandReg.Models;
+using System.Diagnostics;
+using System.Linq;
+using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Identity;
+using LoginandReg.Models;
 
 namespace LoginandReg.Controllers
 {
     public class HomeController : Controller
     {
+        private readonly ILogger<HomeController> _logger;
         private MyContext _context;
-        public HomeController(MyContext context)
+
+        public HomeController(ILogger<HomeController> logger, MyContext context)
         {
+            _logger = logger;
             _context = context;
         }
 
-        [HttpGet("")]
         public IActionResult Index()
         {
-            return View("Index");
+            return View();
         }
 
-        [HttpGet("login")]
-        public IActionResult LoginForm()
-        {
-            return View("Login");
-        }
-
-        [HttpPost("user/register")]
-        public IActionResult Register(Wrapper Form)
+        [HttpPost("register")]
+        public IActionResult Register(User newUser)
         {
             if (ModelState.IsValid)
             {
-                if (_context.Users.Any(u => u.Email == Form.User.Email))
+                // Validate the given email in the database. 
+                if (_context.Users.Any(o => o.Email == newUser.Email))
                 {
-                    ModelState.AddModelError("User.Email", "Email already in use!");
-                    return Index();
+                    ModelState.AddModelError("Email", "Email is already taken!");
+                    return View("register");
                 }
-                PasswordHasher<User> Hasher = new PasswordHasher<User>();
-                Form.User.Password = Hasher.HashPassword(Form.User, Form.User.Password);
-                _context.Add(Form.User);
+                //Hash the password only after verifying everything else
+                PasswordHasher<User> Hashbrown = new PasswordHasher<User>();
+                newUser.Password = Hashbrown.HashPassword(newUser, newUser.Password);
+                // Now add to the database
+                _context.Add(newUser);
+                // Also save all the changes
                 _context.SaveChanges();
-
-                var NewUser = _context.Users.FirstOrDefault(u => u.Email == Form.User.Email);
-                int UserID = NewUser.UserId;
-                HttpContext.Session.SetInt32("CurrentUser", UserID);
-
-                return RedirectToAction("Success");
+                return RedirectToAction("dashboard");
             }
             else
             {
-                return Index();
+                return View("register");
             }
         }
-
-        [HttpPost("user/login")]
-        public IActionResult Login(Wrapper Form)
+        [HttpPost("login")]
+        public IActionResult Login(User logUser)
         {
             if (ModelState.IsValid)
             {
-                User ReturningUser = _context.Users.FirstOrDefault(u => u.Email == Form.UserLogin.LoginEmail);
-                if (ReturningUser == null)
-                {
-                    ModelState.AddModelError("UserLogin.LoginEmail", "Invalid Email Address");
-                    return LoginForm();
-                }
-                PasswordHasher<LoginUser> hasher = new PasswordHasher<LoginUser>();
-                var result = hasher.VerifyHashedPassword(Form.UserLogin, ReturningUser.Password, Form.UserLogin.LoginPassword);
-                if (result == 0)
-                {
-                    ModelState.AddModelError("UserLogin.LoginPassword", "Invalid Password");
-                    return LoginForm();
-                }
-                HttpContext.Session.SetInt32("CurrentUser", ReturningUser.UserId);
-                return RedirectToAction("Success");
+                return RedirectToAction("dashboard");
             }
             else
             {
-                return View("Login");
+                return View("login");
             }
         }
 
         [HttpGet("success")]
         public IActionResult Success()
         {
-            Wrapper wrap = new Wrapper();
-            int? CurrentUser = HttpContext.Session.GetInt32("CurrentUser");
-            User active = _context.Users.FirstOrDefault(u => u.UserId == CurrentUser);
-            if (active == null)
-            {
-                return RedirectToAction("Index");
-            }
-            wrap.User = active;
-            return View("Success", wrap);
+            return View();
+        }
+        public IActionResult Privacy()
+        {
+            return View();
         }
 
-        [HttpGet("/logout")]
-        public IActionResult Logout()
+        [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
+        public IActionResult Error()
         {
-            HttpContext.Session.Clear();
-            return RedirectToAction("Index");
+            return View(new ErrorViewModel { RequestId = Activity.Current?.Id ?? HttpContext.TraceIdentifier });
         }
     }
 }
+

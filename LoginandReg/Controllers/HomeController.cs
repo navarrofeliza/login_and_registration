@@ -5,8 +5,9 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Http;
+using Microsoft.EntityFrameworkCore;
 using LoginandReg.Models;
 
 namespace LoginandReg.Controllers
@@ -68,10 +69,15 @@ namespace LoginandReg.Controllers
         [HttpGet("success")]
         public IActionResult Success()
         {
+
             return View();
         }
         public IActionResult Privacy()
         {
+            if (HttpContext.Session.GetInt32("UserId") == null)
+            {
+                return RedirectToAction("Index");
+            }
             return View();
         }
 
